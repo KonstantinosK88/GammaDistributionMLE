@@ -1,0 +1,93 @@
+#///////////////////////////////////////////////////////
+# Gamma Distribution MLE for shape and scale paramters
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+# Insert the data as a vector
+dat <- scan(file="C:\\Users\\30697\\Desktop\\whales.txt")
+
+#================================
+# Gamma, negative log-likelihood
+#================================
+logl <- function(thet,dat){
+ #gamma minus log-likelihood
+ n <- length(dat)
+ a <- thet[1]; b <- thet[2]
+ -(n*a*log(b)-n*lgamma(a)+(a-1)*sum(log(dat))-b*sum(dat))
+}
+
+#=========================================
+# Maximum Likelihood using Newton-Rhapson
+#=========================================
+# Load the library (numDeriv)
+# install.packages("numDeriv")
+library(numDeriv)
+
+# Initial Values
+thet0 <- c(1, 1)
+iter <- 0
+eps <- 1
+
+# Maximum Likelihood Estimation
+while (eps > 1e-6){
+ iter <- iter + 1
+ gradient <- grad(logl, x=thet0, dat=dat)
+ hess <- hessian(logl, x=thet0, dat=dat)
+ thet <- thet0 - solve(hess)%*%gradient
+ thet <- as.vector(thet)
+ eps <- sum(abs(thet-thet0))
+ thet0 <- thet
+}
+
+thet
+iter
+
+#=========================================
+# Maximum Likelihood using optim()
+#=========================================
+fit <- optim(par=c(1,1), logl, method='BFGS', dat=dat, hessian=TRUE)
+fit
+
+
+#/////////////////////////////////////////
+# Hypothesis Testing
+# H0: a=1
+# H1: a!=1
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+# Calculate the variance of a (the shape parameter)
+variance <- solve(fit$hessian)[1,1]
+
+# Calculate the Wald statistic
+wald <- ((fit$par[1] - 1)^2)/variance
+wald
+
+# Perform a hypothesis test based on p-value
+pchisq(wald, df=1, lower.tail = FALSE)
+
+# This is less than our significance level of 5%, therefore
+# we reject H0 in favour of H1, thus implying that the Gamma
+# distribution seems to be a better choice for this particular
+# set of data.
+
+
+#======================================
+# Alternative way to perform Wald Test
+#======================================
+
+# Calculate the standard error of a (the shape parameter)
+standard.error <- sqrt(variance)
+
+# Wald Test
+wald2 <- (fit$par[1] - 1)/standard.error
+wald2
+
+# 95% Confidence Interval
+confidence.interval <- fit$par[1] + c(-1,1)*1.96*standard.error
+
+# Hypothesis Test
+confidence.interval[1] < wald2 && wald2 < confidence.interval[2]
+
+# FALSE, therefore we reject H0 for H1 at a statistical significance  
+# of 5%, thus implying that Gamma distribution is preferable to
+# Exponential distribution for the data given to us.
+
